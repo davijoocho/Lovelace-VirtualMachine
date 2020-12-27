@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "virtual_machine.h"
 
 virt_mach* construct_vm (uint8_t* bcode)
@@ -79,25 +78,33 @@ void execute_bytec (virt_mach* vm, int main_fn, uint8_t* const_pool)
                 vm->globals[addr] = vm->operand_stack[sp--];
                 break;
 
-            case ICONST: 
-                cpi = vm->byte_c[pc++];
+            case ICONST:
+                cpi = 0;
+                cpi = (cpi | vm->byte_c[pc+1]) << 8 | (cpi | vm->byte_c[pc]);
+                pc += 2;
                 v = 0;
                 v = (v | const_pool[cpi+3]) << 24 | (v | const_pool[cpi+2]) << 16 | 
                     (v | const_pool[cpi+1]) << 8 | (v | const_pool[cpi]); 
                 vm->operand_stack[++sp] = v;
                 break;
 
-            case JMP:
-                pc = vm->byte_c[pc];
+            case JMP: 
+                addr = 0;
+                addr = (addr | vm->byte_c[pc+1]) << 8 | (addr | vm->byte_c[pc]);
+                pc = addr;
                 break;
 
-            case JMPF:
-                addr = vm->byte_c[pc++];
+            case JMPF:  
+                addr = 0;
+                addr = (addr | vm->byte_c[pc+1]) << 8 | (addr | vm->byte_c[pc]);
+                pc += 2;
                 if (!vm->operand_stack[sp--]) pc = addr;
                 break;
 
-            case JMPT:
-                addr = vm->byte_c[pc++];
+            case JMPT: 
+                addr = 0;
+                addr = (addr | vm->byte_c[pc+1]) << 8 | (addr | vm->byte_c[pc]);
+                pc += 2;
                 if (vm->operand_stack[sp--]) pc = addr;
                 break;
 
@@ -107,8 +114,10 @@ void execute_bytec (virt_mach* vm, int main_fn, uint8_t* const_pool)
                 vm->operand_stack[++sp] = l <= r;
                 break;
 
-            case CALL:
-                addr = vm->byte_c[pc++];
+            case CALL: 
+                addr = 0;
+                addr = (addr | vm->byte_c[pc+1]) << 8 | (addr | vm->byte_c[pc]);
+                pc += 2;
                 argc = vm->byte_c[pc++];
                 construct_frame(vm, sp, argc, &vm->exec_stack[++esi], pc);
                 sp -= argc;
