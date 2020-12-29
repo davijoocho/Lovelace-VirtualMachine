@@ -88,6 +88,28 @@ void execute_bytec (virt_mach* vm, int main_fn, uint8_t* const_pool)
                 vm->operand_stack[++sp] = v;
                 break;
 
+            case AND:
+                r = vm->operand_stack[sp--];
+                l = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = (l == 0) ? l : r;
+                break;
+
+            case OR:
+                r = vm->operand_stack[sp--];
+                l = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = (l == 1) ? l : r;
+                break;
+
+            case NOT:
+                v = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = (v == 0) ? 1 : 0;
+                break;
+
+            case NEG:
+                v = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = -v;
+                break;
+
             case JMP: 
                 addr = 0;
                 addr = (addr | vm->byte_c[pc+1]) << 8 | (addr | vm->byte_c[pc]);
@@ -106,6 +128,30 @@ void execute_bytec (virt_mach* vm, int main_fn, uint8_t* const_pool)
                 addr = (addr | vm->byte_c[pc+1]) << 8 | (addr | vm->byte_c[pc]);
                 pc += 2;
                 if (vm->operand_stack[sp--]) pc = addr;
+                break;
+
+            case EQ:
+                r = vm->operand_stack[sp--];
+                l = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = l == r;
+                break;
+
+            case GT:
+                r = vm->operand_stack[sp--];
+                l = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = l > r;
+                break;
+
+            case LT:
+                r = vm->operand_stack[sp--];
+                l = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = l < r;
+                break;
+
+            case GTEQ:
+                r = vm->operand_stack[sp--];
+                l = vm->operand_stack[sp--];
+                vm->operand_stack[++sp] = l >= r;
                 break;
 
             case LTEQ:
