@@ -7,8 +7,8 @@
 
 #define MAX_OPERAND_STACK 256
 #define MAX_EXECUTION_STACK 128
-#define MAX_LOCAL 16
-#define MAX_GLOBAL 32
+#define MAX_LOCAL 32
+#define MAX_GLOBAL 8
 
 typedef enum op_c
 {
@@ -42,14 +42,14 @@ typedef enum op_c
 typedef struct stack_frame
 {
     int ret_addr;
-    int locals[MAX_LOCAL];
+    int locals[MAX_LOCAL];  // if implementation of execution stack changes to linked_list, allow for more locals (255).
 } stack_frame;
 
-typedef struct virt_mach
+typedef struct virt_mach   // get rid of typedefs.
 {
     uint8_t* byte_c;
     int operand_stack[MAX_OPERAND_STACK];
-    stack_frame exec_stack[MAX_EXECUTION_STACK];
+    stack_frame exec_stack[MAX_EXECUTION_STACK];  // use linked_list? allocating an insame amount memory that may not be used.
     int globals[MAX_GLOBAL]; 
 } virt_mach;
 
