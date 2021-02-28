@@ -1,34 +1,41 @@
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include "garbage_collect.h"
 #include "virtual_machine.h"
 
 
 int main(int argc, char* argv[])
 {
-    FILE* fp = fopen(argv[1], "rb");
+    int8_t byte_code[20] = {
+        0x30, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x08, 0x40,
+        0x30, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0xf8, 0x3f,
+        0x31,
+        0x6D
+    };
 
-    uint8_t metadata[12]; 
-    fread(metadata, sizeof(uint8_t), 12, fp);
+   
+    /*
+    printf("GEN_0: %p  FREE_PTR_0: %p\n", mem.gen_ptrs[0], mem.free_ptrs[0]);
+    printf("GEN_1: %p  FREE_PTR_1: %p\n", mem.gen_ptrs[1], mem.free_ptrs[1]);
+    printf("GEN_2: %p  FREE_PTR_2: %p\n", mem.gen_ptrs[2], mem.free_ptrs[2]);
+    printf("HEAP MEMORY\n");
 
-    int mf_i = 0;
-    int cp_i = 0;
-    int cp_size = 0;
+    for (int i = 0; i < HEAP_SIZE; i++) {
+        if (i % 100 == 0 && i != 0) {
+            printf("\n");
+        }
+        printf("%d", mem.heap[i]);
+    }
+    */
 
+    /*
+    struct virt_mach* vm = malloc(sizeof(struct virt_mach));
+    vm->byte_code = byte_code;
+    vm->execution_stack = NULL;
 
-    mf_i = (mf_i | metadata[3]) << 24 | (mf_i | metadata[2]) << 16 | (mf_i | metadata[1]) << 8 | (mf_i | metadata[0]); // relative
-    cp_i = (cp_i | metadata[7]) << 24 | (cp_i | metadata[6]) << 16 | (cp_i | metadata[5]) << 8 | (cp_i | metadata[4]); // absolute
-    cp_size = (cp_size | metadata[11]) << 24 | (cp_size | metadata[10]) << 16 | (cp_size | metadata[9]) << 8 | (cp_size | metadata[8]);
-
-    uint8_t program[cp_i - 12];
-    fread(program, sizeof(uint8_t), cp_i - 12, fp);
-
-    uint8_t const_pool[cp_size];
-    fread(const_pool, sizeof(uint8_t), cp_size, fp);
-
-    fclose(fp);
-
-    virt_mach* vm = construct_vm( program );
-    execute_bytec (vm, mf_i, const_pool);
+    execute(vm, 0);
+    */
 
     return 0;
 }

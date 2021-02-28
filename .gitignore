@@ -1,5 +1,6 @@
 .DS_Store
 *.o
+*.swo
 *.lbc
 *.swp
 lovelace_vm
