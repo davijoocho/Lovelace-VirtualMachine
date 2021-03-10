@@ -1,5 +1,9 @@
+#ifndef GARBAGE_COLLECT_H
+#define GARBAGE_COLLECT_H
+
+#include <stdint.h>
 #include <stddef.h>
-#include "virtual_machine.h"
+#include <string.h>
 
 // TEMPORARY DEFAULT SIZE
 // DON'T IMPLEMENT HEAP RESIZING YET
@@ -21,12 +25,23 @@ struct mem_handle {
 };
 
 struct mem_root {
-    int32_t* local_ptr;           // pointer to local variable in some arbitrary stack frame.
+    int32_t* local_ptr; 
     struct mem_root* prev;
     struct mem_root* next;
 };
 
-struct rem_set {
+
+struct y_rem_set {
+    uint16_t n_ptrs;
+    uint16_t capacity;
+    struct mem_handle** ptr_set;  
+
+    uint16_t n_empty;
+    uint16_t empty_cap;
+    uint16_t* empty_slots;        
+};
+
+struct o_rem_set {
     uint16_t n_ptrs;
     uint16_t capacity;
     struct mem_handle** ptr_set;
@@ -39,23 +54,21 @@ struct mem_info {
 
     struct mem_handle sent_handle;
     struct mem_handle* last_handles[3];
-    struct mem_root root_sets[3];  // [0]: GEN0 [1]: GEN1 [2]: GEN2
-    struct rem_set rem_sets[2];    // TO-DO: SET_FIELDS AND AALOADS
+    struct mem_root root_sets[3];
+    struct y_rem_set rem_sets[2];    // TO-DO: SET_FIELDS AND AALOADS
 };
 
 // ALLOCATE
 void init_mem_info(struct mem_info* mem);
-struct mem_handle* allocate_mem(struct mem_info* mem, int8_t* byte_code, int32_t size, int32_t ref);    // FOR NEW ARRAYS AND STRUCTS
-struct mem_root* alloc_mem_root(struct mem_info* mem, int32_t* local);
+struct mem_handle* allocate_mem(struct mem_info* mem, int8_t* byte_code, int32_t size, int32_t ref); 
+void update_root(struct mem_info* mem, struct mem_handle* handle, int32_t* local);
 
 // GARBAGE COLLECT
 void free_mem(struct mem_info* mem, int8_t* byte_code);
-void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct rem_set* gt_gen);      
+void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen);      
 void mark_handles(struct mem_info* mem, struct mem_handle* handle, 
-        uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct rem_set* gt_gen);
-void sweep(struct mem_info* mem, struct rem_set* gt_gen, int8_t gen_c, uint8_t has_recursed);
+        uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen);
+void sweep(struct mem_info* mem, struct o_rem_set* old_gen, int8_t gen_c, uint8_t has_recursed);
 void update_roots(struct mem_info* mem, int8_t upto_gen);
 
-
-
-
+#endif

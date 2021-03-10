@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "garbage_collect.h"
 
 #define MAX_OPERAND_STACK 256
 #define MAX_EXECUTION_DEPTH 4096
@@ -100,66 +101,105 @@ enum op_code
     L2D = 0x49,
     L2I = 0x4A,
     L2F = 0x4B,
+    I2S = 0x4C,
+    L2S = 0x4D,
+    F2S = 0x4E,
+    D2S = 0x4F,
+    B2S = 0x50,
 
-    // STRUCTS
-    LOCAL_STRUCT_INIT = 0x4C,
-    MODULE_STRUCT_INIT = 0x4D,
-    ISETFIELD = 0x4E,
-    LSETFIELD = 0x4F,
-    FSETFIELD = 0x50,
-    DSETFIELD = 0x51,
-    STRUCT_SETFIELD = 0x52,
-    ARRAY_SETFIELD = 0x53,
-    STRUCT_STORE = 0x54,
-    STRUCT_LOAD = 0x55,
-    REF_OFFSETS = 0x56,
-    
-    
+    // STRUCT INIT
+    LOCAL_STRUCT_INIT = 0x51,
+    MODULE_STRUCT_INIT = 0x52,
+    IINIT_FIELD = 0x53,
+    LINIT_FIELD = 0x54,
+    FINIT_FIELD = 0x55,
+    DINIT_FIELD = 0x56,
+    CINIT_FIELD = 0x57,
+    BINIT_FIELD = 0x58,
+    STRUCT_INIT_FIELD = 0x59,
+    ARRAY_INIT_FIELD = 0x5A,
+
+    STRUCT_STORE = 0x5B,
+    STRUCT_LOAD = 0x5C,
+    REF_OFFSETS = 0x5D,
+
+    // R-VALUE
+    IGETFIELD = 0x5E,
+    LGETFIELD = 0x5F,
+    FGETFIELD = 0x60,
+    DGETFIELD = 0x61,
+    CGETFIELD = 0x62,
+    BGETFIELD = 0x63,
+    STRUCT_GETFIELD = 0x64,
+    ARRAY_GETFIELD = 0x65,
+
+    // L-VALUE
+    ISETFIELD = 0x66,
+    LSETFIELD = 0x67,
+    FSETFIELD = 0x68,
+    DSETFIELD = 0x69,
+
     // ARRAYS
-    INEWARRAY = 0x57,
-    IARRAY_INDEX = 0x58,
-    IARRAY_STORE = 0x59,
+    INEWARRAY = 0x6A,
+    IARRAY_INDEX = 0x6B,
+    IARRAY_STORE = 0x6C,
 
-    LNEWARRAY = 0x5A,
-    LARRAY_INDEX = 0x5B,
-    LARRAY_STORE = 0x5C,
+    LNEWARRAY = 0x6D,
+    LARRAY_INDEX = 0x6E,
+    LARRAY_STORE = 0x6F,
 
-    FNEWARRAY = 0x5D,
-    FARRAY_INDEX = 0x5E,
-    FARRAY_STORE = 0x5F,
+    FNEWARRAY = 0x70,
+    FARRAY_INDEX = 0x71,
+    FARRAY_STORE = 0x72,
 
-    DNEWARRAY = 0x60,
-    DARRAY_INDEX = 0x61,
-    DARRAY_STORE = 0x62,
+    DNEWARRAY = 0x73,
+    DARRAY_INDEX = 0x74,
+    DARRAY_STORE = 0x75,
 
-    SNEWARRAY = 0x63,
-    SARRAY_INDEX = 0x64,
-    SARRAY_STORE = 0x65,
+    BNEWARRAY = 0x76,
+    BARRAY_INDEX = 0x77,
+    BARRAY_STORE = 0x78,
 
-    AARRAY_INDEX = 0x66,   // Item
-    AARRAY_STORE_= 0x67,
+    CNEWARRAY = 0x79,
+    CARRAY_INDEX = 0x7A,
+    CARRAY_STORE = 0x7B,
 
-    ARRAY_LOAD = 0x68,     // Local
-    ARRAY_STORE = 0x69,
+    SNEWARRAY = 0x7C,
+    SARRAY_INDEX = 0x7D,
+    SARRAY_STORE = 0x7E,
 
-    // NULL REFERENCE
-    NULL_REF = 0x6A,
+    AARRAY_INDEX = 0x7F,
+    AARRAY_STORE = 0x80,
+
+    ARRAY_LOAD = 0x81,     // Local
+    ARRAY_STORE = 0x82,
+
+    NULL_REF = 0x83,
 
     // FUNCTION
-    MODULE_CALL = 0x6B,
-    LOCAL_CALL = 0x6C,
-    SYS_CALL = 0x6D,
-    RETURN = 0x6E,
-    END = 0x6F
+    LOCAL_CALL = 0x84,
+    MODULE_CALL = 0x85,
 
-    // STRING
-    //STRING_STORE
-    //STRING_LOAD
-    //STRING_CONCAT
+    SYS_CALL = 0x86,
+    REMOVE_REF = 0x87,
+    RETURN = 0x88,
+    END = 0x89,
+
+    GET_OFFSET = 0x8A,
+    OFFSET = 0x8B,
+
+    // EXTRA
+    CSETFIELD = 0x8C,
+    BSETFIELD = 0x8D,
+    STRUCT_SET_FIELD = 0x8E,
+    ARRAY_SET_FIELD = 0x8F
+
+    //STRING_CONCAT -> LIKE PYTHON?
 };
 
 struct stack_frame
 {
+    int8_t capacity;
     int8_t nrefs;
     uint8_t* refs;               // dynamic array of indexes into locals
     uint32_t ret_addr;
@@ -174,12 +214,10 @@ struct virt_mach
     struct stack_frame* execution_stack;
 };
 
+
 void execute (struct virt_mach* vm, int main);
-void init_stack_frame (struct virt_mach* vm, int sp, int argc, int ret_index);
-
-void dealloc_stack_frame();
-
-
+void init_stack_frame (struct virt_mach* vm, int sp, int8_t n32, int8_t* ref_pos, int8_t n_refs, int32_t ret_a, struct mem_info* mem);
+void free_roots (struct stack_frame* context, int8_t n);
 
 
 #endif

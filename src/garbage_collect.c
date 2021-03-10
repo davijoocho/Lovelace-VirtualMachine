@@ -5,17 +5,17 @@
 
 void free_mem(struct mem_info* mem, int8_t* byte_code) 
 {
-    struct rem_set gt_gen = {.n_ptrs = 0, .capacity = 16, .ptr_set = malloc(sizeof(struct mem_handle*) * 16)};
+    struct o_rem_set old_gen = {.n_ptrs = 0, .capacity = 16, .ptr_set = malloc(sizeof(struct mem_handle*) * 16)};
     uint32_t active_mem = 0;
     uint8_t no_free_space = 1; 
     int8_t i = 0;
 
     while (no_free_space) {
         active_mem = 0;
-        mark_roots(mem, &active_mem, byte_code, i, &gt_gen);
+        mark_roots(mem, &active_mem, byte_code, i, &old_gen);
 
         if (i == 2 || (i < 2 && mem->free_ptrs[i+1] + active_mem <= mem->gen_ptrs[i+2])) {
-            sweep(mem, &gt_gen, i, 0);
+            sweep(mem, &old_gen, i, 0);
             update_roots(mem, i);
             no_free_space = 0;
         }
@@ -23,28 +23,37 @@ void free_mem(struct mem_info* mem, int8_t* byte_code)
     }
 }
 
-void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct rem_set* gt_gen)
+void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen)
 {
     struct mem_root* root = mem->root_sets[gen_c].next; 
     struct mem_handle* handle;
 
     while (root != &mem->root_sets[gen_c]) {
         memcpy(&handle, root->local_ptr, 8);
-        mark_handles(mem, handle, active_mem, byte_code, gen_c, gt_gen);
+        mark_handles(mem, handle, active_mem, byte_code, gen_c, old_gen);
         root = root->next;
     }
 
     if (gen_c < 2) {
-        struct rem_set* set = &mem->rem_sets[gen_c];
+        struct y_rem_set* set = &mem->rem_sets[gen_c];
         for (int i = 0; i < set->n_ptrs; i++) {
-            mark_handles(mem, set->ptr_set[i], active_mem, byte_code, gen_c, gt_gen);
+            if (set->ptr_set[i] != NULL) {
+                mark_handles(mem, set->ptr_set[i], active_mem, byte_code, gen_c, old_gen);
+            }
         }
+
+        set->empty_slots = realloc(set->empty_slots, sizeof(uint16_t) * 16);
+        set->n_empty = 0;
+        set->empty_cap = 16;
+
+        set->ptr_set = realloc(set->ptr_set, sizeof(struct mem_handle*) * 16);
         set->n_ptrs = 0;
+        set->capacity = 16;
     }
 }
 
 void mark_handles(struct mem_info* mem, struct mem_handle* handle, 
-        uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct rem_set* gt_gen)
+        uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen)
 {
     // -1: ALL REFERENCES, >= 0: PARTIAL REFERENCES
     if (handle->gen >= gen_c && handle->is_active != 1) {
@@ -55,10 +64,10 @@ void mark_handles(struct mem_info* mem, struct mem_handle* handle,
         }
 
         if (gen_c < 2 && handle->gen > gen_c) { 
-            if (gt_gen->n_ptrs == gt_gen->capacity) {
-                gt_gen->ptr_set = realloc(gt_gen->ptr_set, gt_gen->capacity * sizeof(struct mem_handle*) * 2);
+            if (old_gen->n_ptrs == old_gen->capacity) {
+                old_gen->ptr_set = realloc(old_gen->ptr_set, old_gen->capacity * sizeof(struct mem_handle*) * 2);
             }
-            gt_gen->ptr_set[gt_gen->n_ptrs++] = handle;
+            old_gen->ptr_set[old_gen->n_ptrs++] = handle;
         }
 
 
@@ -67,19 +76,19 @@ void mark_handles(struct mem_info* mem, struct mem_handle* handle,
             int64_t h_addr;
             int16_t n = 0;
             int16_t offset;   
-            int16_t n_iter = (handle->ref_ptr == -1) ? handle->size / 8 : *(byte_code + pos++);
+            int16_t n_iter = (handle->ref_ptr == -1) ? handle->size / 10 : *(byte_code + pos++);
 
             while (n < n_iter) {
                 if (handle->ref_ptr == -1) {
-                    offset = n * 8;
+                    offset = n * 10;
                 } else {
                     memcpy(&offset, byte_code + pos, 2);
                     pos += 2;
                 }
 
                 memcpy(&h_addr, handle->heap_ptr + offset, 8);
-                if (h_addr >= 0) {
-                    mark_handles(mem, (struct mem_handle*)h_addr, active_mem, byte_code, gen_c, gt_gen);
+                if (h_addr == 0) {
+                    mark_handles(mem, (struct mem_handle*)h_addr, active_mem, byte_code, gen_c, old_gen);
                 }
 
                 n += 1;
@@ -89,19 +98,18 @@ void mark_handles(struct mem_info* mem, struct mem_handle* handle,
 }
 
 // SUS
-void sweep(struct mem_info* mem, struct rem_set* gt_gen, int8_t gen_c, uint8_t has_recursed)
+void sweep(struct mem_info* mem, struct o_rem_set* old_gen, int8_t gen_c, uint8_t has_recursed)
 {
     if (gen_c >= 0) {
-        printf("generation_collect: %d\n", gen_c);
         if (!has_recursed) {
             if (gen_c < 2) {
-                for (int i = 0; i < gt_gen->n_ptrs; i++) {
-                    if (gt_gen->ptr_set[i]->gen > gen_c) {
-                        gt_gen->ptr_set[i]->is_active = 0;
+                for (int i = 0; i < old_gen->n_ptrs; i++) {
+                    if (old_gen->ptr_set[i]->gen > gen_c) {
+                        old_gen->ptr_set[i]->is_active = 0;
                     }
                 }
             }
-            free(gt_gen->ptr_set);
+            free(old_gen->ptr_set);
         } 
 
         struct mem_handle* handle = mem->last_handles[gen_c];
@@ -124,7 +132,6 @@ void sweep(struct mem_info* mem, struct rem_set* gt_gen, int8_t gen_c, uint8_t h
                     handle->prev->next = handle->next;
 
                     handle = handle->prev;
-                    int d = dealloc_handle == &mem->sent_handle;
                     free(dealloc_handle);
                 }
                 i += 1;
@@ -181,16 +188,48 @@ void sweep(struct mem_info* mem, struct rem_set* gt_gen, int8_t gen_c, uint8_t h
 }
 
 
-
-struct mem_root* alloc_mem_root(struct mem_info* mem, int32_t* local)
+void update_root(struct mem_info* mem, struct mem_handle* new_handle, int32_t* local) 
 {
-    struct mem_root* root = malloc(sizeof(struct mem_root));
-    root->prev = &mem->root_sets[0];
-    root->next = mem->root_sets[0].next;
-    mem->root_sets[0].next = root;
-    root->next->prev = root;
-    root->local_ptr = local;
-    return root;
+    struct mem_root* root;
+    memcpy(&root, local + 2, 8);
+
+    struct mem_handle* prev_handle;
+    memcpy(&prev_handle, local, 8);
+
+    if (new_handle == NULL && root != NULL) {
+        memset(local, 0, 16);
+        root->next->prev = root->prev;
+        root->prev->next = root->next;
+        free(root);
+
+    } else if (new_handle->gen != prev_handle->gen) {
+        struct mem_root* to_root = &mem->root_sets[new_handle->gen];
+
+        root->next->prev = root->prev;
+        root->prev->next = root->next;
+
+        root->prev = to_root;
+        root->next = to_root->next;
+        root->prev->next = root;
+        root->next->prev = root;
+
+        memcpy(local, &new_handle, 8);
+
+    } else if (new_handle != NULL && root == NULL) {
+        struct mem_root* new_root = malloc(sizeof(struct mem_root));
+        struct mem_root* to_root = &mem->root_sets[new_handle->gen];
+
+        new_root->prev = to_root;
+        new_root->next = to_root->next;
+      
+        new_root->prev->next = new_root;
+        new_root->next->prev = new_root;
+
+        new_root->local_ptr = local;
+
+        memcpy(local, &new_handle, 8);
+        memcpy(local + 2, &new_root, 8);
+    }
 }
 
 void update_roots(struct mem_info* mem, int8_t upto_gen)
@@ -212,14 +251,13 @@ void update_roots(struct mem_info* mem, int8_t upto_gen)
 
                 from_root->prev = to_root;
                 from_root->next = to_root->next;
-                to_root->next = from_root;
+                from_root->prev->next = from_root;
                 from_root->next->prev = from_root;
             }
 
             from_root = from_root->next;
         }
     }
-
 }
 
 struct mem_handle* allocate_mem(struct mem_info* mem, int8_t* byte_code, int32_t size, int32_t ref)
@@ -241,12 +279,11 @@ struct mem_handle* allocate_mem(struct mem_info* mem, int8_t* byte_code, int32_t
     handle->gen = 0;
     handle->ref_ptr = ref;
 
-    // set front, back pointers of mem_handle - DOUBLE CHECK
+    // set front, back pointers of mem_handle
     handle->prev = &mem->sent_handle;
     handle->next = mem->sent_handle.next;
-    struct mem_handle* next_handle = mem->sent_handle.next;
-    mem->sent_handle.next = handle;
-    next_handle->prev = handle;
+    handle->prev->next = handle;
+    handle->next->prev = handle;
 
     // increment free_ptr by allocated size
     mem->free_ptrs[0] += size;
@@ -275,8 +312,14 @@ void init_mem_info(struct mem_info* mem)
     }
 
     for (int i = 0; i < 2; i++) {
-        mem->rem_sets[i].ptr_set = malloc(sizeof(struct mem_handle*) * 16);
-        mem->rem_sets[i].n_ptrs = 0;
-        mem->rem_sets[i].capacity = 16;
+        struct y_rem_set* rem_set = &mem->rem_sets[i];
+
+        rem_set->ptr_set = malloc(sizeof(struct mem_handle*) * 16);
+        rem_set->n_ptrs = 0;
+        rem_set->capacity = 16;
+
+        rem_set->empty_slots = malloc(sizeof(uint16_t) * 16);
+        rem_set->n_empty = 0;
+        rem_set->empty_cap = 16;
     }
 }
