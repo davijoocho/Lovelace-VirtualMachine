@@ -87,7 +87,7 @@ void mark_handles(struct mem_info* mem, struct mem_handle* handle,
                 }
 
                 memcpy(&h_addr, handle->heap_ptr + offset, 8);
-                if (h_addr == 0) {
+                if (h_addr != 0) {
                     mark_handles(mem, (struct mem_handle*)h_addr, active_mem, byte_code, gen_c, old_gen);
                 }
 
@@ -97,7 +97,6 @@ void mark_handles(struct mem_info* mem, struct mem_handle* handle,
     }
 }
 
-// SUS
 void sweep(struct mem_info* mem, struct o_rem_set* old_gen, int8_t gen_c, uint8_t has_recursed)
 {
     if (gen_c >= 0) {
@@ -150,11 +149,13 @@ void sweep(struct mem_info* mem, struct o_rem_set* old_gen, int8_t gen_c, uint8_
                     handle->is_active = 0;
                     handle = handle->prev;
                 } else {
+                    struct mem_handle* non_active_hndl = handle;
+
                     handle->next->prev = handle->prev;
                     handle->prev->next = handle->next;
 
                     handle = handle->prev;
-                    free(handle);
+                    free(non_active_hndl);
                 }
             }
 
@@ -170,7 +171,7 @@ void sweep(struct mem_info* mem, struct o_rem_set* old_gen, int8_t gen_c, uint8_
             while (handle != &mem->sent_handle) {
                 if (handle != lw_addr_hndl) {
                     memcpy(mem->free_ptrs[gen_c], handle->heap_ptr, handle->size);
-                    lw_addr_hndl->heap_ptr = mem->free_ptrs[gen_c];
+                    handle->heap_ptr = mem->free_ptrs[gen_c];
                     mem->free_ptrs[gen_c] += handle->size;
                 }
                 handle = handle->next;

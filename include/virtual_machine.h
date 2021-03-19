@@ -5,7 +5,7 @@
 #include <string.h>
 #include "garbage_collect.h"
 
-#define MAX_OPERAND_STACK 256
+#define MAX_OPERAND_STACK 255
 #define MAX_EXECUTION_DEPTH 4096
 #define MAX_LOCAL 255
 
