@@ -32,9 +32,9 @@ struct mem_root {
 
 
 struct y_rem_set {
-    uint16_t n_ptrs;
+    uint16_t pos;
     uint16_t capacity;
-    struct mem_handle** ptr_set;  
+    int8_t** ptr_set;  
 
     uint16_t n_empty;
     uint16_t empty_cap;
@@ -60,14 +60,14 @@ struct mem_info {
 
 // ALLOCATE
 void init_mem_info(struct mem_info* mem);
-struct mem_handle* allocate_mem(struct mem_info* mem, int8_t* byte_code, int32_t size, int32_t ref); 
+struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_t size, int32_t ref); 
 void update_root(struct mem_info* mem, struct mem_handle* handle, int32_t* local);
 
 // GARBAGE COLLECT
-void free_mem(struct mem_info* mem, int8_t* byte_code);
-void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen);      
+void free_mem(struct mem_info* mem, uint8_t* byte_code);
+void mark_roots(struct mem_info* mem, uint32_t* active_mem, uint8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen);      
 void mark_handles(struct mem_info* mem, struct mem_handle* handle, 
-        uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen);
+        uint32_t* active_mem, uint8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen);
 void sweep(struct mem_info* mem, struct o_rem_set* old_gen, int8_t gen_c, uint8_t has_recursed);
 void update_roots(struct mem_info* mem, int8_t upto_gen);
 

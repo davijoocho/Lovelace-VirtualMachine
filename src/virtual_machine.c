@@ -13,10 +13,15 @@ void execute (struct virt_mach* vm, int main)
     int32_t pc = main;
 
     enum op_code instruction = vm->byte_code[pc];
-    int32_t r32, l32, v32, addr;
-    int64_t r64, l64, v64;
-    float rf, lf, vf;
-    double rd, ld, vd;
+
+    struct mem_handle* handle;
+    int8_t* field;
+    uint16_t n_init, offset;        // STRUCT
+    int32_t ret_a, addr;     // RET_A (RESERVED FOR STRUCT)
+    int32_t r32, l32, v32;   // INTEGER
+    int64_t r64, l64, v64;   // LONG
+    float rf, lf, vf;        // FLOAT
+    double rd, ld, vd;       // DOUBLE
 
     while (1)
     {
@@ -383,37 +388,27 @@ void execute (struct virt_mach* vm, int main)
                 sp -= 3;
                 break;
 
-            case BSTORE:  // BSTORE, 00
-                addr = vm->byte_code[pc++];
-                vm->execution_stack->locals[addr] = vm->operand_stack[sp--];
-                break;
-            case BLOAD:   // BLOAD, 00
-                addr = vm->byte_code[pc++];
-                vm->operand_stack[++sp] = vm->execution_stack->locals[addr];
-                break;
-
-            case BCONST:  // BCONST, 01
-                v32 = 0;
-                memcpy(&v32, vm->byte_code + pc, 1);
-                vm->operand_stack[++sp] = v32;
-                pc += 1;
-                break;
 
             case CSTORE:
+            case BSTORE:  // BSTORE, 00 || CSTORE, 00
                 addr = vm->byte_code[pc++];
                 vm->execution_stack->locals[addr] = vm->operand_stack[sp--];
                 break;
+
             case CLOAD:
+            case BLOAD:   // BLOAD, 00 || CLOAD, 00
                 addr = vm->byte_code[pc++];
                 vm->operand_stack[++sp] = vm->execution_stack->locals[addr];
                 break;
-            case CCONST:  // CCONST, 01
+
+            case CCONST:
+            case BCONST:  // BCONST, 01 || CCONST, 01
                 v32 = 0;
                 memcpy(&v32, vm->byte_code + pc, 1);
                 vm->operand_stack[++sp] = v32;
                 pc += 1;
                 break;
-           
+
 
             // IMPLEMENT
             case I2L:
@@ -429,68 +424,145 @@ void execute (struct virt_mach* vm, int main)
             case B2S:
                 break;
 
-            case LOCAL_STRUCT_INIT: {  // LOCAL_STRUCT_INIT, 00, 00, 00, 00
-                int32_t ret_a = pc + 4;
-                memcpy(&pc, vm->byte_code + pc, 4);
-
-                uint16_t mem_sz;
-                memcpy(&mem_sz, vm->byte_code + pc, 2);
-                uint16_t n_inst;
-                memcpy(&n_inst, vm->byte_code + pc + 2, 2);
+            case LOCAL_STRUCT_INIT: {  // LOCAL_STRUCT_INIT, 00, 00, 00, 00 ----> 00, 00, 00, 00 (mem_size, instruction_size)
+                memcpy(&addr, vm->byte_code + pc, 4);
                 pc += 4;
+                ret_a = pc;
+                pc += addr;
 
-                struct mem_handle* handle = allocate_mem(&mem, vm->byte_code, mem_sz, -2);
+                uint16_t n_bytes;
+                memcpy(&n_bytes, vm->byte_code + pc, 2);
+                memcpy(&n_init, vm->byte_code + pc + 2, 2);
 
-                for (; n_inst > 0; n_inst++) {
-                    uint16_t offset = 0;
-                    memcpy(&offset, vm->byte_code + pc + 1, 2);
-
-                    switch(*(vm->byte_code + pc)) {
-                        case IINIT_FIELD:
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp--, 4);
-                            break;
-                        case LINIT_FIELD: 
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp - 3, 8);
-                            sp -= 4;
-                            break;
-                        case FINIT_FIELD:
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp--, 4);
-                            break;
-                        case DINIT_FIELD:
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp - 3, 8);
-                            sp -= 4;
-                            break;
-
-                        case CINIT_FIELD:
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp--, 1);
-                            break;
-                        case BINIT_FIELD:
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp--, 1);
-                            break;
-                        case STRUCT_INIT_FIELD:
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp - 3, 8);
-                            sp -= 4;
-                            break;
-                        case ARRAY_INIT_FIELD:
-                            memcpy(handle->heap_ptr + offset, vm->operand_stack + sp - 3, 8);
-                            sp -= 4;
-                            break;
-                        case REF_OFFSETS:
-                            handle->ref_ptr = pc + 1;
-                            break;
-                        default:
-                            break;
-                    }
-                    pc += 3;
-                }
-               
-                memcpy(vm->operand_stack + sp, &handle, 8);
-                pc = ret_a;
+                handle = allocate_mem(&mem, vm->byte_code, n_bytes, -2);
+                offset = 0; pc += 4;
                 break;
             }
 
-            case STRUCT_STORE:
+            case FSETFIELD:
+            case ISETFIELD:
+                if (n_init > 0) {
+                    memcpy(handle->heap_ptr + offset, vm->operand_stack + sp--, 4);
+                    offset += 4;
+                    if (n_init == 1) {
+                        memcpy(vm->operand_stack + sp + 1, &handle, 8);
+                        pc = ret_a; sp += 2;
+                    }
+                    n_init -= 1;
+                } else {
+                    memcpy(&field, vm->operand_stack + sp - 2, 8);
+                    memcpy(field, vm->operand_stack + sp, 4);
+                    sp -= 3;
+                }
+                break;
+
+            case LSETFIELD:
+            case DSETFIELD:
+                if (n_init > 0) {
+                    memcpy(handle->heap_ptr + offset, vm->operand_stack + sp - 1, 8);
+                    offset += 8; sp -= 2;
+                    if (n_init == 1) {
+                        memcpy(vm->operand_stack + sp + 1, &handle, 8);
+                        pc = ret_a; sp += 2;
+                    }
+                    n_init -= 1;
+                } else {
+                    memcpy(&field, vm->operand_stack + sp - 3, 8);
+                    memcpy(field, vm->operand_stack + sp - 1, 8);
+                    sp -= 4;
+                }
+                break;
+
+            case BSETFIELD:
+            case CSETFIELD:
+                if (n_init > 0) {
+                    memcpy(handle->heap_ptr + offset, vm->operand_stack + sp--, 1);
+                    offset += 1;
+                    if (n_init == 1) {
+                        memcpy(vm->operand_stack + sp + 1, &handle, 8);
+                        pc = ret_a; sp += 2;
+                    }
+                    n_init -= 1;
+                } else {
+                    memcpy(&field, vm->operand_stack + sp - 2, 8);
+                    memcpy(field, vm->operand_stack + sp, 1);
+                    sp -= 3;
+                }
+                break;
+
+            case STRUCT_SET_FIELD:   // STRUCT_SET_FIELD (INIT) || STRUCT_SET_FIELD, 00, 00 (MUTATE)
+            case ARRAY_SET_FIELD:    // REF-FIELDS ARE 10 BYTES WIDE - 8 BYTES USED FOR REFERENCE, 2 BYTES USED FOR REM SET POS
+                if (n_init > 0) {
+                    memcpy(handle->heap_ptr + offset, vm->operand_stack + sp - 1, 8);
+                    memset(handle->heap_ptr + offset + 8, 0, 2);
+                    offset += 10; sp -= 2;
+                    if (n_init == 1) {
+                        memcpy(vm->operand_stack + sp + 1, &handle, 8);
+                        pc = ret_a; sp += 2;
+                    }
+                    n_init -= 1;
+                } else {
+                    struct mem_handle* ref; 
+                    struct mem_handle* prev_handle; 
+                    struct y_rem_set* set;
+                    uint16_t rem_set_pos; 
+
+                    memcpy(&offset, vm->byte_code + pc, 2);            // OFFSET OF PREV_HNDL REF FIELD
+                    memcpy(&handle, vm->operand_stack + sp - 1, 8);    // NEW_HNDL
+                    memcpy(&prev_handle, vm->operand_stack + sp - 3, 8);
+
+                    memcpy(&rem_set_pos, prev_handle->heap_ptr + offset + 8, 2);
+                    memcpy(&ref, prev_handle->heap_ptr + offset, 8);
+
+                    set = &mem.rem_sets[ref->gen];
+
+                    if (handle == NULL || handle->gen >= prev_handle->gen) {
+                        if (rem_set_pos != 0) {
+                            set->ptr_set[rem_set_pos - 1] = NULL;
+
+                            if (set->n_empty == set->empty_cap) {
+                                set->empty_slots = realloc(set->empty_slots, sizeof(uint16_t) * set->empty_cap * 2);
+                                set->empty_cap *= 2;
+                            }
+                            
+                            set->empty_slots[set->n_empty++] = rem_set_pos - 1;
+                            memset(prev_handle->heap_ptr + offset + 8, 0, 2);
+                        }
+                    } else {
+                        if (rem_set_pos == 0) {
+                            if (set->n_empty != 0) {
+                                uint16_t idx = set->empty_slots[set->n_empty--];
+                                set->ptr_set[idx++] = prev_handle->heap_ptr + offset;
+                                memcpy(prev_handle->heap_ptr + offset + 8, &idx, 2);
+                            } else {
+                                if (set->pos == set->capacity) {
+                                    set->ptr_set = realloc(set->ptr_set, sizeof(int8_t*) * set->capacity * 2);
+                                    memset(set->ptr_set + set->capacity, 0, sizeof(int8_t*) * set->capacity);
+                                    set->capacity *= 2;
+                                }
+                                set->ptr_set[set->pos++] = prev_handle->heap_ptr + offset;
+                                memcpy(prev_handle->heap_ptr + offset + 8, &set->pos, 2);
+                            }
+                        }
+                    }
+
+                    memcpy(prev_handle->heap_ptr + offset, &handle, 8);
+                    sp -= 4;
+                    pc += 2;
+                }
+                break;
+
+
+            case REF_OFFSETS:
+                handle->ref_ptr = pc;
+                memcpy(vm->operand_stack + sp + 1, &handle, 8);
+                sp += 2; n_init -= 1;
+                pc = ret_a;
+                break;
+
+            case STRUCT_STORE: // STRUCT_STORE, 00, 00
             case STRUCT_LOAD:
+                // update_root
            
             case IGETFIELD: // IGETFIELD, 00, 00 <offset in object>
             case LGETFIELD:
@@ -501,14 +573,6 @@ void execute (struct virt_mach* vm, int main)
             case STRUCT_GETFIELD:
             case ARRAY_GETFIELD:
 
-            case ISETFIELD:
-            case LSETFIELD:
-            case FSETFIELD:
-            case DSETFIELD:
-            case BSETFIELD:
-            case CSETFIELD:
-            case STRUCT_SET_FIELD:
-            case ARRAY_SET_FIELD:
 
             case MODULE_STRUCT_INIT: // MODULE_STRUCT_INIT, STRING_LENGTH, <STRING - STRUCT_NAME>
                 break;
@@ -525,25 +589,32 @@ void execute (struct virt_mach* vm, int main)
             case DNEWARRAY:
             case DARRAY_INDEX:
             case DARRAY_STORE:
-            case SNEWARRAY:
-            case SARRAY_INDEX:
-            case SARRAY_STORE:
 
             case CNEWARRAY:
-            case CARRAY_STORE:
-            case CARRAY_INDEX:
-
             case BNEWARRAY:
+            case CARRAY_STORE:
             case BARRAY_STORE:
+            case CARRAY_INDEX:
             case BARRAY_INDEX:
 
             case AARRAY_INDEX:
             case AARRAY_STORE:
+            case SNEWARRAY:
+            case SARRAY_INDEX:
+            case SARRAY_STORE:
+                // rem_set
+
+
             case ARRAY_LOAD:
             case ARRAY_STORE:
+                // update_root
+
             case NULL_REF:
+                v64 = 0;
+                memcpy(vm->operand_stack + sp + 1, &v64, 8);
+                sp += 2;
+                break;
             case GET_OFFSET:
-            case OFFSET:  // OFFSET, 00, 00
                 break;
 
                 /*
@@ -575,10 +646,10 @@ void execute (struct virt_mach* vm, int main)
             } */
 
             case LOCAL_CALL: {   // LOCAL_CALL, 04, 02, 00, 02, 16, 00, 00, 00  - offset from cur position  (16, 00, 00, 00, <here>)
-                int8_t n32 = vm->byte_code[pc++];
-                int8_t n_refs = vm->byte_code[pc++];
+                uint8_t n32 = vm->byte_code[pc++];
+                uint8_t n_refs = vm->byte_code[pc++];
 
-                int8_t ref_pos[n_refs];
+                uint8_t ref_pos[n_refs];
                 memcpy(ref_pos, vm->byte_code + pc, n_refs);
                 pc += n_refs;
 
@@ -610,6 +681,14 @@ void execute (struct virt_mach* vm, int main)
                 break;
 
             case END:
+                printf("HEAP MEMORY\n");
+
+                for (int i = 0; i < HEAP_SIZE; i++) {
+                    if (i % 100 == 0 && i != 0) {
+                        printf("\n");
+                    }
+                    printf("%d", mem.heap[i]);
+                }
                 return;
 
             default:
@@ -621,6 +700,7 @@ void execute (struct virt_mach* vm, int main)
         instruction = vm->byte_code[pc];
     }
 
+
     free(vm->execution_stack);
     free(vm->byte_code);
     free(vm);
@@ -628,8 +708,7 @@ void execute (struct virt_mach* vm, int main)
 
 
 
-void init_stack_frame (struct virt_mach* vm, int sp, int8_t n32, 
-        int8_t* ref_pos, int8_t n_refs, int32_t ret_a, struct mem_info* mem)
+void init_stack_frame (struct virt_mach* vm, int sp, uint8_t n32, uint8_t* ref_pos, uint8_t n_refs, int32_t ret_a, struct mem_info* mem)
 {
     struct stack_frame* context = malloc(sizeof(struct stack_frame));
     memset(context->locals, 0, MAX_LOCAL * 4);
@@ -639,14 +718,14 @@ void init_stack_frame (struct virt_mach* vm, int sp, int8_t n32,
     context->ret_addr = ret_a;
 
     int32_t* op_stack = vm->operand_stack + sp - n32 + 1;
-    int8_t ref_i = 0;
-    int8_t op_i = 0;
-    int8_t loc_i = 0;
+    uint8_t ref_i = 0;
+    uint8_t op_i = 0;
+    uint8_t loc_i = 0;
 
     while (op_i < n32) {
         if (ref_i < n_refs && op_i == ref_pos[ref_i]) {
             struct mem_handle* handle;
-            memcpy(&handle, op_stack + op_i, 2);
+            memcpy(&handle, op_stack + op_i, 8);
             update_root(mem, handle, context->locals + loc_i);
 
             context->refs[context->nrefs++] = loc_i;

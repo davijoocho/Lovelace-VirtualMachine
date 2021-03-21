@@ -110,14 +110,6 @@ enum op_code
     // STRUCT INIT
     LOCAL_STRUCT_INIT = 0x51,
     MODULE_STRUCT_INIT = 0x52,
-    IINIT_FIELD = 0x53,
-    LINIT_FIELD = 0x54,
-    FINIT_FIELD = 0x55,
-    DINIT_FIELD = 0x56,
-    CINIT_FIELD = 0x57,
-    BINIT_FIELD = 0x58,
-    STRUCT_INIT_FIELD = 0x59,
-    ARRAY_INIT_FIELD = 0x5A,
 
     STRUCT_STORE = 0x5B,
     STRUCT_LOAD = 0x5C,
@@ -171,7 +163,7 @@ enum op_code
     AARRAY_INDEX = 0x7F,
     AARRAY_STORE = 0x80,
 
-    ARRAY_LOAD = 0x81,     // Local
+    ARRAY_LOAD = 0x81,     // LOCAL
     ARRAY_STORE = 0x82,
 
     NULL_REF = 0x83,
@@ -186,7 +178,6 @@ enum op_code
     END = 0x89,
 
     GET_OFFSET = 0x8A,
-    OFFSET = 0x8B,
 
     // EXTRA
     CSETFIELD = 0x8C,
@@ -209,16 +200,15 @@ struct stack_frame
 
 struct virt_mach
 {
-    int8_t* byte_code;
+    uint8_t* byte_code;
     int32_t operand_stack[MAX_OPERAND_STACK];
     struct stack_frame* execution_stack;
 };
 
 
 void execute (struct virt_mach* vm, int main);
-void init_stack_frame (struct virt_mach* vm, int sp, int8_t n32, int8_t* ref_pos, int8_t n_refs, int32_t ret_a, struct mem_info* mem);
+void init_stack_frame (struct virt_mach* vm, int sp, uint8_t n32, uint8_t* ref_pos, uint8_t n_refs, int32_t ret_a, struct mem_info* mem);
 void free_roots (struct stack_frame* context, int8_t n);
-
 
 #endif
 

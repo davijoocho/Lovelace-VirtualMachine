@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void free_mem(struct mem_info* mem, int8_t* byte_code) 
+void free_mem(struct mem_info* mem, uint8_t* byte_code) 
 {
     struct o_rem_set old_gen = {.n_ptrs = 0, .capacity = 16, .ptr_set = malloc(sizeof(struct mem_handle*) * 16)};
     uint32_t active_mem = 0;
@@ -23,7 +23,7 @@ void free_mem(struct mem_info* mem, int8_t* byte_code)
     }
 }
 
-void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen)
+void mark_roots(struct mem_info* mem, uint32_t* active_mem, uint8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen)
 {
     struct mem_root* root = mem->root_sets[gen_c].next; 
     struct mem_handle* handle;
@@ -36,9 +36,12 @@ void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, i
 
     if (gen_c < 2) {
         struct y_rem_set* set = &mem->rem_sets[gen_c];
-        for (int i = 0; i < set->n_ptrs; i++) {
+        struct mem_handle* rem_hndl;
+        for (int i = 0; i < set->pos; i++) {
             if (set->ptr_set[i] != NULL) {
-                mark_handles(mem, set->ptr_set[i], active_mem, byte_code, gen_c, old_gen);
+                memcpy(&rem_hndl, set->ptr_set[i], 8);
+                memset(set->ptr_set[i] + 8, 0, 2);
+                mark_handles(mem, rem_hndl, active_mem, byte_code, gen_c, old_gen);
             }
         }
 
@@ -46,14 +49,15 @@ void mark_roots(struct mem_info* mem, uint32_t* active_mem, int8_t* byte_code, i
         set->n_empty = 0;
         set->empty_cap = 16;
 
-        set->ptr_set = realloc(set->ptr_set, sizeof(struct mem_handle*) * 16);
-        set->n_ptrs = 0;
+        set->ptr_set = realloc(set->ptr_set, sizeof(int8_t*) * 16);
+        memset(set->ptr_set, 0, sizeof(int8_t*) * 16);
+        set->pos = 1;
         set->capacity = 16;
     }
 }
 
 void mark_handles(struct mem_info* mem, struct mem_handle* handle, 
-        uint32_t* active_mem, int8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen)
+        uint32_t* active_mem, uint8_t* byte_code, int8_t gen_c, struct o_rem_set* old_gen)
 {
     // -1: ALL REFERENCES, >= 0: PARTIAL REFERENCES
     if (handle->gen >= gen_c && handle->is_active != 1) {
@@ -261,7 +265,7 @@ void update_roots(struct mem_info* mem, int8_t upto_gen)
     }
 }
 
-struct mem_handle* allocate_mem(struct mem_info* mem, int8_t* byte_code, int32_t size, int32_t ref)
+struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_t size, int32_t ref)
 {
     struct mem_handle* handle = malloc(sizeof(struct mem_handle));
 
@@ -315,8 +319,8 @@ void init_mem_info(struct mem_info* mem)
     for (int i = 0; i < 2; i++) {
         struct y_rem_set* rem_set = &mem->rem_sets[i];
 
-        rem_set->ptr_set = malloc(sizeof(struct mem_handle*) * 16);
-        rem_set->n_ptrs = 0;
+        rem_set->ptr_set = calloc(16, sizeof(struct mem_handle*));
+        rem_set->pos = 0;
         rem_set->capacity = 16;
 
         rem_set->empty_slots = malloc(sizeof(uint16_t) * 16);
