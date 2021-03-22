@@ -7,42 +7,31 @@
 
 int main(int argc, char* argv[])
 {
-    /*
-    uint8_t byte_code[38] = {
-        0x1A, 0x00, 0x05, 0x00,
-        ISETFIELD,
-        ISETFIELD,
-        LSETFIELD,
-        STRUCT_SET_FIELD,
-        REF_OFFSETS, 0x01,
-        0x08, 0x00,
-        NULL_REF,
-        LCONST, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ICONST, 0x01, 0x00, 0x00, 0x00,
-        ICONST, 0x02, 0x00, 0x00, 0x00,
-        LOCAL_STRUCT_INIT, 0xDB, 0xFF, 0xFF, 0xFF,
+    uint8_t byte_code[60] = {
+        QUAD_CONST, 0x06, 0x00, 0x00, 0x00,
+        QUAD_CONST, 0x06, 0x00, 0x00, 0x00,
+        IADD,
+        NEW_QUAD_ARRAY, 0x00,
+        REF_STORE, 0x00,
+        REF_LOAD, 0x00,
+        OFFSET, 0x00, 0x00, 0x00, 0x00,
+        GET_OFFSET,
+        QUAD_CONST, 0x10, 0x00, 0x00, 0x00,
+        SET_QUAD_FIELD,
+        REF_LOAD, 0x00,
+        OFFSET, 0x00, 0x00, 0x00, 0x00,
+        GET_QUAD_FIELD,
+        SYS_CALL,
+        RETURN,
+        LOCAL_CALL, 0x00, 0xD3, 0xFF, 0xFF, 0xFF,
         END
     };
-
-
-    printf("GEN_0: %p  FREE_PTR_0: %p\n", mem.gen_ptrs[0], mem.free_ptrs[0]);
-    printf("GEN_1: %p  FREE_PTR_1: %p\n", mem.gen_ptrs[1], mem.free_ptrs[1]);
-    printf("GEN_2: %p  FREE_PTR_2: %p\n", mem.gen_ptrs[2], mem.free_ptrs[2]);
-    printf("HEAP MEMORY\n");
-
-    for (int i = 0; i < HEAP_SIZE; i++) {
-        if (i % 256 == 0 && i != 0) {
-            printf("\n");
-        }
-        printf("%d", mem.heap[i]);
-    }
 
     struct virt_mach* vm = malloc(sizeof(struct virt_mach));
     vm->byte_code = byte_code;
     vm->execution_stack = NULL;
 
-    execute(vm, 12);
-    */
+    execute(vm, 39);
 
     return 0;
 }

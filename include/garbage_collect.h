@@ -62,6 +62,7 @@ struct mem_info {
 void init_mem_info(struct mem_info* mem);
 struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_t size, int32_t ref); 
 void update_root(struct mem_info* mem, struct mem_handle* handle, int32_t* local);
+struct mem_handle* allocate_arr(struct mem_info* mem, uint8_t* byte_code, uint8_t word_size, uint8_t level, int32_t* lengths);
 
 // GARBAGE COLLECT
 void free_mem(struct mem_info* mem, uint8_t* byte_code);

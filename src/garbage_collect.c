@@ -207,19 +207,6 @@ void update_root(struct mem_info* mem, struct mem_handle* new_handle, int32_t* l
         root->prev->next = root->next;
         free(root);
 
-    } else if (new_handle->gen != prev_handle->gen) {
-        struct mem_root* to_root = &mem->root_sets[new_handle->gen];
-
-        root->next->prev = root->prev;
-        root->prev->next = root->next;
-
-        root->prev = to_root;
-        root->next = to_root->next;
-        root->prev->next = root;
-        root->next->prev = root;
-
-        memcpy(local, &new_handle, 8);
-
     } else if (new_handle != NULL && root == NULL) {
         struct mem_root* new_root = malloc(sizeof(struct mem_root));
         struct mem_root* to_root = &mem->root_sets[new_handle->gen];
@@ -234,6 +221,19 @@ void update_root(struct mem_info* mem, struct mem_handle* new_handle, int32_t* l
 
         memcpy(local, &new_handle, 8);
         memcpy(local + 2, &new_root, 8);
+
+    } else if (new_handle->gen != prev_handle->gen) {
+        struct mem_root* to_root = &mem->root_sets[new_handle->gen];
+
+        root->next->prev = root->prev;
+        root->prev->next = root->next;
+
+        root->prev = to_root;
+        root->next = to_root->next;
+        root->prev->next = root;
+        root->next->prev = root;
+
+        memcpy(local, &new_handle, 8);
     }
 }
 
@@ -264,6 +264,28 @@ void update_roots(struct mem_info* mem, int8_t upto_gen)
         }
     }
 }
+
+
+struct mem_handle* allocate_arr(struct mem_info* mem, uint8_t* byte_code, uint8_t word_size, uint8_t level, int32_t* lengths) {
+    if (level < 0) {
+        return NULL;
+    }
+
+    int32_t n_items = lengths[level];
+    struct mem_handle* arr = (level == 0) ? allocate_mem(mem, byte_code, word_size * n_items, -2) : 
+                                            allocate_mem(mem, byte_code, word_size * n_items, -1);
+    if (level > 0) {
+        int8_t* offset = arr->heap_ptr;
+        struct mem_handle* child;
+        for (int i = 0; i < n_items; i++) {
+            child = allocate_arr(mem, byte_code, word_size, level - 1, lengths);
+            memcpy(offset, &child, 8);
+            offset += word_size;
+        }
+    }
+    return arr;
+}
+
 
 struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_t size, int32_t ref)
 {
@@ -296,7 +318,8 @@ struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_
     return handle;
 }
 
-// Fix this ugliness (MACRO?)
+
+// Fix this ugliness
 void init_mem_info(struct mem_info* mem)
 {
     mem->heap = malloc(HEAP_SIZE);
