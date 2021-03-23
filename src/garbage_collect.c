@@ -76,11 +76,12 @@ void mark_handles(struct mem_info* mem, struct mem_handle* handle,
 
 
         if (handle->ref_ptr == -1 || handle->ref_ptr >= 0) {
-            int32_t pos = handle->ref_ptr;  // NOT USED IF FLAG == -1
+            uint32_t pos = handle->ref_ptr;  // NOT USED IF FLAG == -1
             int64_t h_addr;
             int16_t n = 0;
             int16_t offset;   
             int16_t n_iter = (handle->ref_ptr == -1) ? handle->size / 10 : *(byte_code + pos++);
+            pos++;
 
             while (n < n_iter) {
                 if (handle->ref_ptr == -1) {
@@ -268,12 +269,12 @@ void update_roots(struct mem_info* mem, int8_t upto_gen)
 
 struct mem_handle* allocate_arr(struct mem_info* mem, uint8_t* byte_code, uint8_t word_size, uint8_t level, int32_t* lengths) {
     if (level < 0) {
-        return NULL;
+        return NULL;      // UNREACHABLE
     }
 
     int32_t n_items = lengths[level];
-    struct mem_handle* arr = (level == 0) ? allocate_mem(mem, byte_code, word_size * n_items, -2) : 
-                                            allocate_mem(mem, byte_code, word_size * n_items, -1);
+    struct mem_handle* arr = (level == 0) ? allocate_mem(mem, byte_code, word_size * n_items, -2, 1) : 
+                                            allocate_mem(mem, byte_code, word_size * n_items, -1, 0);
     if (level > 0) {
         int8_t* offset = arr->heap_ptr;
         struct mem_handle* child;
@@ -287,7 +288,7 @@ struct mem_handle* allocate_arr(struct mem_info* mem, uint8_t* byte_code, uint8_
 }
 
 
-struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_t size, int32_t ref)
+struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_t size, int32_t ref, uint8_t zero_init)
 {
     struct mem_handle* handle = malloc(sizeof(struct mem_handle));
 
@@ -305,6 +306,9 @@ struct mem_handle* allocate_mem(struct mem_info* mem, uint8_t* byte_code, int32_
     handle->is_active = 0;
     handle->gen = 0;
     handle->ref_ptr = ref;
+
+    if (zero_init)
+        memset(handle->heap_ptr, 0, size);
 
     // set front, back pointers of mem_handle
     handle->prev = &mem->sent_handle;

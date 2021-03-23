@@ -9,6 +9,8 @@
 #define MAX_EXECUTION_DEPTH 4096
 #define MAX_LOCAL 255
 
+// definition location
+
 enum op_code
 {
     // INTEGER
@@ -93,16 +95,14 @@ enum op_code
     LOCAL_STRUCT_INIT = 0x51,
     MODULE_STRUCT_INIT = 0x52,
     REF_OFFSETS = 0x5D,
+    END_INIT = 0x5E,
+    INIT_FIELD = 0x5F,
 
     // R-VALUE
-    GET_OCTA_FIELD = 0x5E,
-    GET_UNI_FIELD = 0x5F,
-    GET_QUAD_FIELD = 0x60,
+    GET_FIELD = 0x62,
 
     // L-VALUE
-    SET_OCTA_FIELD = 0x61,
-    SET_UNI_FIELD = 0x62,
-    SET_QUAD_FIELD = 0x63,
+    SET_FIELD = 0x63,
     SET_REF_FIELD = 0x64,
 
     // ARRAY
@@ -111,14 +111,13 @@ enum op_code
     REF_LOAD = 0x90,
     REF_STORE = 0x91,
 
-    NEW_QUAD_ARRAY = 0x92,
-    NEW_UNI_ARRAY = 0x93,
-    NEW_OCTA_ARRAY = 0x94,
-    NEW_REF_ARRAY = 0x95,
+    NEW_ARRAY = 0x92,
+    ARRAY_LENGTH = 0x93,
 
     // FUNCTION
     LOCAL_CALL = 0x84,
     MODULE_CALL = 0x85,
+    PRINT = 0x98,
 
     SYS_CALL = 0x86,
     REMOVE_REF = 0x87,
