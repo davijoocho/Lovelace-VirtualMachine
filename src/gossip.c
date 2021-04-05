@@ -8,7 +8,10 @@
 int main(int argc, char* argv[])
 {
     uint8_t byte_code[60] = {
-
+        QUAD_CONST, 0x0A, 0x00, 0x00, 0x00,
+        QUAD_CONST, 0x0A, 0x00, 0x00, 0x00,
+        QUAD_CONST, 0x0A, 0x00, 0x00, 0x00,
+        NEW_ARRAY, 0x03, 0x04,
         END
     };
 
@@ -16,7 +19,7 @@ int main(int argc, char* argv[])
     vm->byte_code = byte_code;
     vm->execution_stack = NULL;
 
-    execute(vm, 39);
+    execute(vm, 0);
 
     return 0;
 }
